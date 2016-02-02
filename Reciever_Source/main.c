@@ -16,6 +16,11 @@
 #define LED1_On			P1OUT |= BIT2;		P1DIR |= BIT2;
 #define LED1_Off	        P1OUT &= (~BIT2);	P1DIR |= BIT2;
 
+#define LED2_On			P1OUT |= BIT3;		P1DIR |= BIT3;
+#define LED2_Off	        P1OUT &= (~BIT3);	P1DIR |= BIT3;
+
+#define LED3_On			P1OUT |= BIT4;		P1DIR |= BIT4;
+#define LED3_Off	        P1OUT &= (~BIT4);	P1DIR |= BIT4;
 /****************************************************************************/
 /*  Function name: ports_init                                               */
 /*  	Parameters                                                          */
