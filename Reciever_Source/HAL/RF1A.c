@@ -124,13 +124,13 @@ void WritePATable(void)
 {
   unsigned char valueRead = 0;
   
-  while(valueRead != 0x03)    // Output Power: -30  [dBm]
+  //while(valueRead != 0x03)    // Output Power: -30  [dBm]
   //while(valueRead != 0x25)    // Output Power: -12  [dBm]
   //while(valueRead != 0x2D)    // Output Power: -6   [dBm]
   //while(valueRead != 0x8D)    // Output Power:  0   [dBm]
   //while(valueRead != 0xC3)    // Output Power:  10  [dBm]
   //while(valueRead != 0xC0)    // Output Power:  Maximum  [dBm]
-  //while(valueRead != 0xC6)    // Output Power(default):  8.8  [dBm]
+  while(valueRead != 0xC6)    // Output Power(default):  8.8  [dBm]
   {
     /* Write the power output to the PA_TABLE and verify the write operation.  */
     unsigned char i = 0; 
@@ -143,7 +143,7 @@ void WritePATable(void)
     //RF1AINSTRW = 0x7E8D; // PA Table write (burst), Output Power: 0    [dBm]
     //RF1AINSTRW = 0x7EC3; // PA Table write (burst), Output Power: 10   [dBm]
     //RF1AINSTRW = 0x7EC0; // PA Table write (burst), Output Power: Maximum  [dBm]
-    //RF1AINSTRW = 0x7EC6; // PA Table write (burst), Output Power(default):  8.8  [dBm]
+    RF1AINSTRW = 0x7EC6; // PA Table write (burst), Output Power(default):  8.8  [dBm]
     
     /* wait for radio to be ready for next instruction */
     while( !(RF1AIFCTL1 & RFINSTRIFG));
@@ -208,23 +208,23 @@ static void RF1A_interface_error_handler(void)
   {
     case 0: break;                          // No error
     case 2:                                 // Low core voltage error     
-      P1OUT &= ~BIT0;						// 00 = on LED's [D2,D1]
-      P3OUT &= ~BIT6; 
+     // P1OUT &= ~BIT0;						// 00 = on LED's [D2,D1]
+     // P3OUT &= ~BIT6; 
       __no_operation();
       break; 
     case 4:                                 // Operand Error
-      P1OUT |= BIT0;						// 01 = on LED's [D2,D1]
-      P3OUT &= ~BIT6; 
+     // P1OUT |= BIT0;						// 01 = on LED's [D2,D1]
+     // P3OUT &= ~BIT6; 
       __no_operation();
       break;  
     case 6:                                 // Output data not available error 
-      P1OUT &= ~BIT0;						// 10 = on LED's [D2,D1]
-      P3OUT |= BIT6; 
+     // P1OUT &= ~BIT0;						// 10 = on LED's [D2,D1]
+     // P3OUT |= BIT6; 
       __no_operation();
       break;
     case 8:                                 // Operand overwrite error
-      P1OUT |= BIT0;						// 11 = on LED's [D2,D1]
-      P3OUT |= BIT6; 
+     // P1OUT |= BIT0;						// 11 = on LED's [D2,D1]
+     // P3OUT |= BIT6; 
       __no_operation();
       break; 
   }
@@ -277,5 +277,5 @@ __interrupt void CC1101_ISR(void)
     case 30: break;                         // RFIFG14
     case 32: break;                         // RFIFG15
   }  
-  __bic_SR_register_on_exit(LPM3_bits);     
+  //__bic_SR_register_on_exit(LPM3_bits);     
 }

@@ -6,35 +6,247 @@
 #include  <intrinsics.h>
 #include "HAL/RF1A.h"
 #include "HAL/cc430x613x_PMM.h"
+#include "HAL/HAL_FLASH.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 //#include "RF_Connection.h"
 #include  "usart.h"
+#include  "Valik_os.h"
 //////////////////////////////////////////////////////////////////////////
+
+
 
 void Init_RF(void); 
 void delay(volatile unsigned long p);
 void delay_1us(volatile unsigned long p);
 void delay_ms(volatile unsigned long p);
 void Delay50us(void);
-//////////////////////////////////////////////////////////////////////////
+void goToSleep(void);
+//////////////////////////////////////
+/****************************************************************************/
+/*     LOCAL VARIABLES                                                      */
+/****************************************************************************/
+char rssi_char;
+unsigned char sRX[5];
+unsigned char data_right;
+unsigned char j,k,l,m;
+int lCount,hCount,allCount;
+char vRSSI_1=0,vRSSI_2=0;
+void setFreq(double Freq);
+void FreqCalc (char *arr, double Freq);
+unsigned char rssi_dec;
+int rssi_dBm;
+unsigned char rssi_offset = 74;
+  char * Flash_ptr;                         // Initialize Flash pointer
+  char Flag_First_Time_Power_On;
+  char FreqOffset[3];
+  
+  //Flash_ptr = (char *) 0x1800;
+///////////////////////////////////////////////////////////////////////////////
+
+
+#define FLASH_UNLOCK    FCTL3 = FWKEY; FCTL1 = FWKEY + WRT;
+#define FLASH_LOCK      FCTL1 = FWKEY; FCTL3 = FWKEY + LOCK;
+#define FLASH_ERASE     FCTL3 = FWKEY;FCTL1 = FWKEY + ERASE;
 
 #define CPU_FREQ   26000000
 
+
 //Definitions
-#define LED_On			P1OUT |= 0x01;		P1DIR |= 0x01;
-#define LED_Off		        P1OUT &= (~0x01);	P1DIR |= 0x01;
-#define LED_Togg		P1OUT ^= 0x01;		P1DIR |= 0x01;
-#define LED_Chk		        (P1IN & 0x01)
 
-#define LED1_On			P1OUT |= BIT2;		P1DIR |= BIT2;
-#define LED1_Off	        P1OUT &= (~BIT2);	P1DIR |= BIT2;
+#define LED_On			P3OUT |= BIT3;		P3DIR |= BIT3;
+#define LED_Off		        P3OUT &= (~BIT3);	P3DIR |= BIT3;
+#define LED_Togg		P3OUT ^= BIT3;		P3DIR |= BIT3;
+#define LED_Chk		        (P3IN & BIT3)
 
-#define LED2_On			P1OUT |= BIT3;		P1DIR |= BIT3;
-#define LED2_Off	        P1OUT &= (~BIT3);	P1DIR |= BIT3;
 
-#define LED3_On			P1OUT |= BIT4;		P1DIR |= BIT4;
-#define LED3_Off	        P1OUT &= (~BIT4);	P1DIR |= BIT4;
+#define RSSI_Hi			P1OUT |= BIT2;		P1DIR |= BIT2;
+#define RSSI_Middle	        P1DIR &= (~BIT2);       P1OUT &= (~BIT2);P1REN &= (~BIT2);P1SEL  &= ~BIT2;
+#define RSSI_Low	        P1OUT &= (~BIT2);	P1DIR |= BIT2;
 
-#define Pin_RX                  (P1IN & BIT1)
+
+#define CON_RX_1_On		P2OUT |= BIT2;		P2DIR |= BIT2;
+#define CON_RX_1_Off	        P2OUT &= (~BIT2);	P2DIR |= BIT2;
+#define CON_RX_1_Togg		P2OUT ^= BIT2;		P2DIR |= BIT2;
+#define CON_RX_1_Chk            (P2IN & BIT2)
+
+
+#define CON_RX_2_On		P2OUT |= BIT3;		P2DIR |= BIT3;
+#define CON_RX_2_Off	        P2OUT &= (~BIT3);	P2DIR |= BIT3;
+#define CON_RX_2_Togg		P2OUT ^= BIT3;		P2DIR |= BIT3;
+#define CON_RX_2_Chk            (P2IN & BIT3)
+
+
+#define CON_TX_1_On		P2OUT |= BIT5;		P2DIR |= BIT5;
+#define CON_TX_1_Off	        P2OUT &= (~BIT5);	P2DIR |= BIT5;
+#define CON_TX_1_Togg		P2OUT ^= BIT5;		P2DIR |= BIT5;
+#define CON_TX_1_Chk            (P2IN & BIT5)
+
+
+#define CON_TX_2_On		P2OUT |= BIT4;		P2DIR |= BIT4; 
+#define CON_TX_2_Off	        P2OUT &= (~BIT4);	P2DIR |= BIT4;
+#define CON_TX_2_Togg		P2OUT ^= BIT4;		P2DIR |= BIT4;
+#define CON_TX_2_Chk            (P2IN & BIT4)
+
+
+
+#define ANT_1_On		P2OUT |= BIT0;		P2DIR |= BIT0;
+#define ANT_1_Off	        P2OUT &= (~BIT0);	P2DIR |= BIT0;
+#define ANT_1_Togg		P2OUT ^= BIT0;		P2DIR |= BIT0;
+#define ANT_1_Chk            (P2IN & BIT0)
+
+
+
+#define ANT_2_On		P2OUT |= BIT1;		P2DIR |= BIT1;
+#define ANT_2_Off	        P2OUT &= (~BIT1);	P2DIR |= BIT1;
+#define ANT_2_Togg		P2OUT ^= BIT1;		P2DIR |= BIT1;
+#define ANT_2_Chk            (P2IN & BIT1)
+
+
+
+#define AMPLIFIRE_On		P1OUT |= BIT7;		P1DIR |= BIT7;
+#define AMPLIFIRE_Off	        P1OUT &= (~BIT7);	P1DIR |= BIT7;
+#define AMPLIFIRE_Togg		P1OUT ^= BIT7;		P1DIR |= BIT7;
+#define AMPLIFIRE_Chk            (P1IN & BIT7)
+
+#define Pin_RX                  (P3IN & BIT7)
+
+
+#define Toogle_Antens         if (ANT_1_Chk) {  ANT_1_Off;ANT_2_On; } else { ANT_2_Off;ANT_1_On; }
+#define Switch_RX             CON_TX_1_Off; CON_TX_2_Off; CON_RX_1_On; CON_RX_2_On                  
+#define Switch_TX             CON_RX_1_Off; CON_RX_2_Off; CON_TX_1_On; CON_TX_2_On                  
+
+////////////FLAGS/////////////////////
+
+#define MAX_RSSI_LEV    -20  
+#define MID_RSSI_LEV    -74
+#define LOW_RSSI_LEV    -80
+
+//////////////////List of process////////////////
+int process0();
+int process1();
+int process_switch_ANT();
+void Init_RF_Test();
+unsigned char TxBuffer[] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+
+/****************************************************************************/
+/*  Function name: CPU_clock_init                                           */
+/*  	Parameters                                                          */
+/*          Input   :  No	                                            */
+/*          Output  :  No	                                            */
+/*	Action: Initialize CPU main                  clock                  */
+/****************************************************************************/
+void CPU_clock_init(void){       
+// ACLK = 32kHz, MCLK = SMCLK = 16MHz
+
+P5SEL |= BIT0 + BIT1; // Select XT1
+UCSCTL6 |= XCAP_3; // Internal load cap
+
+__bis_SR_register(SCG0);                // Disable the FLL control loop
+UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
+UCSCTL1 = DCORSEL_7;                // Select DCO range 16MHz operation
+UCSCTL2 = FLLD_1 + 487;              // Set DCO Multiplier for 8MHz
+                                                              // (N + 1) * FLLRef = Fdco
+                                                              // (249 + 1) * 32768 = 8MHz
+                                                              // (365 + 1) * 32768 = 12MHz
+                                                              // (487 + 1) * 32768 = 16MHz
+                                                              // Set FLL Div = fDCOCLK/2
+
+__bic_SR_register(SCG0); // Enable the FLL control loop
+
+// Worst-case settling time for the DCO when the DCO range bits have been
+// changed is n x 32 x 32 x f_MCLK / f_FLL_reference. See UCS chapter in 5xx
+// UG for optimization.
+// 32 x 32 x 8 MHz / 32,768 Hz = 250000 = MCLK cycles for DCO to settle
+__delay_cycles(375000);
+ }
+
+
+/////////////////Read saved values////////////
+int read_Flash(void) {
+  Flash_ptr = (char *) 0x1800;
+  *Flash_ptr = 0;
+  Flag_First_Time_Power_On = *Flash_ptr++; // Read first flag
+  
+  if (Flag_First_Time_Power_On==0x00){ // check if write before
+      
+          for(int i=0;i<3;i++){
+                                FreqOffset[i] = *Flash_ptr++;
+                              }
+                        
+        }    else {
+              FreqOffset[0]= 0x0C;
+              FreqOffset[1]= 0x1D;
+              FreqOffset[2]= 0x89;
+            }
+process_trigger  ("upd_freq");
+}
+
+
+////////////////////SAVE SETTINGS/////////////////
+int save_Flash(void) {
+
+////////////// CLEAR FLASH SEGMENT ///////////////
+//Workaround: Disable global interrupt while erasing.
+//local variable to store GIE status
+//char * Flash_ptr;
+ uint16_t gieStatus;
+//Store current SR register
+gieStatus = __get_SR_register() & GIE;
+//Disable global interrupt
+__disable_interrupt();
+FLASH_ERASE;
+//Dummy write to erase Flash seg
+ Flash_ptr = (char *) 0x1800;
+*Flash_ptr = 0;
+//test busy
+while (FCTL3 & BUSY);
+FLASH_LOCK;
+//Restore SR register
+__bis_SR_register(gieStatus);
+/////////////PLACE, WHERE WE WRITE VARIABLES ////////////////////
+FLASH_UNLOCK;
+      *Flash_ptr++ = 0x00; //Flag_First_Time_Power_On
+      *Flash_ptr++ = FreqOffset[0];
+      *Flash_ptr++ = FreqOffset[1];
+      *Flash_ptr++ = FreqOffset[2];
+FLASH_LOCK;
+
+}
+///////////////ANTENNA INIT///////////////////////////
+int ant_init(void)
+{
+ANT_1_On;
+ANT_2_Off;
+Switch_RX;
+}
+////////////////AMPLIFIRE init ///////////////////////
+int amplifire_init(void)
+{
+AMPLIFIRE_On;
+}
+////////////////TX settings//////////////////////////
+int prepare_for_TX(void)
+{ 
+ReceiveOff();
+Init_RF_Test();
+Switch_TX;
+}
+
+int setFreqOffset(){
+                        WriteSingleReg(FREQ0,FreqOffset[2]);//0x89
+                        WriteSingleReg(FREQ1,FreqOffset[1]);//0x1D
+                        WriteSingleReg(FREQ2,FreqOffset[0]);//0x0C
+}
+
+int ForRFTest(){
+
+      Transmit( (unsigned char*)TxBuffer, sizeof TxBuffer);      
+      //Wait for TX status to be reached before going back to low power mode
+      while((Strobe(RF_SNOP) & 0x70) != 0x20);
+}
 /****************************************************************************/
 /*  Function name: ports_init                                               */
 /*  	Parameters                                                          */
@@ -42,40 +254,42 @@ void Delay50us(void);
 /*          Output  :  No	                                            */
 /*	Action: Initialize all Port's directions and states                 */
 /****************************************************************************/
-void ports_init(void)
+
+int ports_init(void)
 {
   P1OUT = 0x00;
   P1DIR = 0x00; 
   P1REN = 0x00;
+  
   P2OUT = 0x00;
   P2DIR = 0x00;
   P2REN = 0x00;
+  
   P3OUT = 0x00;
   P3DIR = 0x00;
   P3REN = 0x00;
   
-  // Set up the button as interruptible 
-  //P1DIR &= ~BIT1;
-  //P1REN |= BIT1;
-  //P1IES &= BIT1;
-  //P1IFG = 0;
-  //P1OUT |= BIT1;
-  //P1IE  |= BIT1; 
-
+   
+  P2OUT &= ~BIT4;
+  P2DIR |= BIT4;
+  
   // Set up LEDs 
   P1OUT &= ~BIT0;
   P1DIR |= BIT0;
   
- 
+ // Set up LEDs 
+  P3OUT &= ~BIT3;
+  P3DIR |= BIT3;
   
-  // Set up BUTTON 
-  P1OUT |= BIT1;  //Pullup
-  P1DIR &= BIT1;  //Input
+  // Set Input 
+  P3OUT |= BIT7;  //Pullup
+  P3DIR &= ~BIT7;  //Input
   
   
   P1MAP0|=BIT0;
   P1DIR |=BIT0;
   P1SEL |=BIT0;
+  return 0;
 }
 /****************************************************************************/
 /*                                                                          */
@@ -110,16 +324,7 @@ __interrupt void PORT1_ISR(void)
   }
 }
 
-/****************************************************************************/
-/*     LOCAL VARIABLES                                                      */
-/****************************************************************************/
 
-char rssi_char;
-unsigned char sRX[5];
-unsigned char data_right;
-unsigned char j,k,l,m;
-int lCount,hCount,allCount;
-char vRSSI_1=0,vRSSI_2=0;
 /****************************************************************************/
 /*                                                                          */
 /*                                                                          */
@@ -127,169 +332,152 @@ char vRSSI_1=0,vRSSI_2=0;
 /*                                                                          */
 /*                                                                          */
 /****************************************************************************/
+////////////////////////Process 1 ////////////////////////////////////////////
+int process0()
+{      // LED_On;
+         //USART_Send_ROM_String("\n\rProcess 0");
+         if (Need_check_UART_Buff) {
+           
+                //USART_Send_ROM_String (USART_Received_Data_Buff);
+           
+           switch (USART_Received_Data_Buff[0]) {
+           case 0xFF: 
+                        USART_Send_Data(USART_Received_Data_Buff[1]);
+                        USART_Send_Data(USART_Received_Data_Buff[2]);
+                        USART_Send_Data(USART_Received_Data_Buff[3]);
+                        FreqOffset[0]=USART_Received_Data_Buff[1];
+                        FreqOffset[1]=USART_Received_Data_Buff[2];
+                        FreqOffset[2]=USART_Received_Data_Buff[3];
+                        process_trigger  ("upd_freq");
+                        USART_Send_Data(USART_Received_Data_Buff[0]);
+             break;
+             
+           case 0xFE: 
+                        if (USART_Received_Data_Buff[1]) { 
+                                                           process_trigger  ("init");
+                                                           process_trigger  ("transmit");
+                                                           process_detach_by_name("read_rssi");
+                                                           process_attach("Testing",   50, (int *)ForRFTest); // Transmit all the time
+                                                          }
+                                                    else {
+                                                            process_trigger  ("init");
+                                                            process_detach_by_name("Testing");
+                                                            process_attach("read_rssi",   50, (int *)process1); // Read RSSI, change antenns
+                                                           
+                                                        }
+                        USART_Send_Data(USART_Received_Data_Buff[0]);
+             break;
+           
+             case 0xFD: 
+                        process_trigger  ("change_ant");
+                        USART_Send_Data(USART_Received_Data_Buff[0]);
+               break;  
+               
+           default:
+             break;
+             
+           }
+           
+                  
+           Need_check_UART_Buff  = 0x00;
+  }
+ // setFreq(315000);
+        return 0;
+}
+////////////////////////Process 2 //////////////////////////////////////////// 
+int process1()
+{       
+        //USART_Send_ROM_String("\n\rProcess 1");
+        
+        rssi_dec = ReadSingleReg(RSSI);
+        if (rssi_dec >= 128)
+        rssi_dBm = (int)((int)( rssi_dec - 256) / 2) - rssi_offset;
+        else
+        rssi_dBm = (rssi_dec / 2) - rssi_offset; 
+            
+              
+           if (rssi_dBm  < LOW_RSSI_LEV)      {
+                                               RSSI_Low;
+                                               process_trigger  ("change_ant");
+                                              }
+           else if (rssi_dBm <= MID_RSSI_LEV) {
+                                               RSSI_Middle;
+                                              }
+           else if (rssi_dBm <= MAX_RSSI_LEV) {
+                                               RSSI_Hi; 
+                                              } 
+                                               else  
+                                              {
+                                               RSSI_Low;
+                                              }
+        delay_ms(10);
+        return 0;
+}
+////////////////////////Process 3 //////////////////////////////////////////// 
+int process_switch_ANT()
+{ 
+Toogle_Antens;    
+}
+
+
+
 int main(void){
-    
+
   //1. Stop errant interrupts until set up
- _BIC_SR(GIE); // Disable interrupts during initialization process
  WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+_BIC_SR(GIE); // Disable interrupts during initialization process
+ process_subscribe("init"       , "ports_init"      , (int *) ports_init);
+ process_subscribe("init"       , "rf_init"         , (int *) Init_RF);
+ process_subscribe("init"       , "cpu_clock_init"  , (int *) CPU_clock_init);
+ process_subscribe("init"       , "uart_init"       , (int *) USART_Init);
+ process_subscribe("init"       , "ant_init"        , (int *) ant_init);
+ process_subscribe("init"       , "amplifire_init"  , (int *) amplifire_init);
+ process_subscribe("init"       , "flash_init"      , (int *) read_Flash);
+ process_subscribe("change_ant" , "change_ant"      , (int *) process_switch_ANT);
+ process_subscribe("transmit"   , "TX_init"         , (int *) prepare_for_TX);
  
- ports_init();
- Init_RF();
+process_subscribe("upd_freq"   , "Save_Freq"        , (int *) save_Flash);
+process_subscribe("upd_freq"   , "UPD_Freq"         , (int *) setFreqOffset);
+
+ process_trigger  ("init");
+ //process_unsubscribe_by_event("init");
+
+ //process_trigger  ("transmit");
+ 
+
+ 
  _BIS_SR(GIE); // Global Interrupt enabled. Do this at the END of the initialization!!!!!!!!
- USART_Init();
 
- // USART_Send_ROM_String(testString);
-
-//-------------------CLOCK------------------------------------------------
-// ACLK = 32kHz, MCLK = SMCLK = 16MHz
-
-P5SEL |= BIT0 + BIT1; // Select XT1
-UCSCTL6 |= XCAP_3; // Internal load cap
-
-__bis_SR_register(SCG0);                // Disable the FLL control loop
-UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
-UCSCTL1 = DCORSEL_7;                // Select DCO range 16MHz operation
-UCSCTL2 = FLLD_1 + 487;              // Set DCO Multiplier for 8MHz
-                                                              // (N + 1) * FLLRef = Fdco
-                                                              // (249 + 1) * 32768 = 8MHz
-                                                              // (365 + 1) * 32768 = 12MHz
-                                                              // (487 + 1) * 32768 = 16MHz
-                                                              // Set FLL Div = fDCOCLK/2
-
-__bic_SR_register(SCG0); // Enable the FLL control loop
-
-// Worst-case settling time for the DCO when the DCO range bits have been
-// changed is n x 32 x 32 x f_MCLK / f_FLL_reference. See UCS chapter in 5xx
-// UG for optimization.
-// 32 x 32 x 8 MHz / 32,768 Hz = 250000 = MCLK cycles for DCO to settle
-
-__delay_cycles(375000);
-
- USART_Init();
- UCA0MCTL = UCBRS_0 + UCBRF_3 + UCOS16; 
- UCA0BR0 = 103;                              // 1MHz 9600 (see User's Guide)
- UCA0BR1 = 0; 
  delay_ms(200);
  
+
+
  //USART_Send_ROM_Menu_Begin();
  //USART_Send_Data(vRSSI_2);
 
+
+//////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////Flash save /////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////
+
  
+
+
+//USART_Send_Data(0x88);// for my debug
+//////////////////////////////////////////////////////////////////////////////////
+//                         M A I N   C Y C L E                                  //
+//////////////////////////////////////////////////////////////////////////////////
+
+  process_attach("setup_by_uart",   50, (int *)process0); // Set freq by UART
+  process_attach("read_rssi"    ,   50, (int *)process1); // Read RSSI, change antenns
+    
+ //process_attach("Testing",   50, (int *)ForRFTest); // Read RSSI, change antenns
   
-  while(1){ 
-  //asm("NOP");
- // if (Pin_RX == 0) {LED1_On;} else {LED1_Off;}
+  scheduler();
+  
+
+while(1){ 
  
-// Delay50us();
-//LED1_On;
-//  Delay50us();
-//LED1_Off;
-
-
-  /* rssi_char = ReadSingleReg(RSSI);
-  USART_Send_Data(rssi_char);
-    
-    if (rssi_char <= 25) LED1_On;
-    if (rssi_char <= 15) LED2_On;
-    if (rssi_char <= 5) LED3_On;
-    delay(200); 
-    
-    LED1_Off;
-    LED2_Off;
-    LED3_Off;
-    asm("NOP");
-  */
-  //////////////////////
-   // USART_Send_Data(rssi_char);
-   // rssi_char = ReadSingleReg(RSSI);
-   // if (rssi_char <= 255) LED3_On;
-   // if (rssi_char <= 100) LED2_On;
-   // if (rssi_char <= 5) LED1_On;
-    //delay(200); 
-    
-    
-    
-    
-	if (Pin_RX >= 1){		
-			lCount = 0;
-		 	while (Pin_RX) {									  
-                                        lCount++;
-                                        Delay50us();
-                                       }
-			if ((lCount >= 6) && (lCount <=10)){					//0.4msµ?°?????	
-				sRX[0] = 0;
-				sRX[1] = 0;
-				sRX[2] = 0;
-				sRX[3] = 0;
-				sRX[4] = 0;
-				data_right = 1;	
-				//Pin_test = 1;				
-				vRSSI_1 = ReadSingleReg(RSSI);
-  				
-				for (j=0;j<36;j++){
-					lCount = 0;
-					hCount = 0;
-                                        
-				   	while (!Pin_RX) {									  //µ?µ???????
-						lCount++;
-						if (lCount > 20) {
-                                                                  lCount = 100;
-                                                                  break;
-						                  }
-						Delay50us();
-                                                
-					}
-                                        
-					while (Pin_RX) {									  //??µ???????
-						hCount++;
-						if (hCount > 20) {
-                                                                  hCount = 100;
-                                                                  break;
-                                                                  }
-						Delay50us();
-					}
-					allCount = lCount + hCount;
-					if ((allCount >= 4) && (allCount <= 45)){			  //12,28
-						if (lCount > hCount){
-							sRX[j / 8] = sRX[j / 8] | (1 << (j % 8));
-							
-						}else{
-							
-						}
-					} else{
-						data_right = 0;
-						break;
-					      }
-				}
-				//Pin_test = 0;
-				Delay50us();
-				if (data_right == 1){
-					vRSSI_2 = ReadSingleReg(RSSI);
-					k = 0;							
-					for (j=0; j<4; j++){
-						l = sRX[j] & 0x0f;
-						k ^= l; 
-						m = sRX[j] >> 4;
-						k ^= m;				
-					} 
-					if (k == sRX[4]){ LED1_On;
-						          USART_Send_Data(0x00);
-                                                          for (j=0;j<5;j++){
-                                                                            USART_Send_Data(sRX[j]);
-                                                                            }
-                                                                            USART_Send_Data(vRSSI_1);
-                                                                            USART_Send_Data(vRSSI_2);
-					                                    USART_Send_Data(0x00);
-                                                                            LED1_Off;
-					                } 
-														 
-				} 			
-			}
-		}
-//////////////////////////// 
-   // LED1_Off;
-   // LED2_Off;
-   // LED3_Off;
   }
   
 }
@@ -302,7 +490,7 @@ __delay_cycles(375000);
 
 
 /**********************************************************************************/
-/*  Function name: Init_RF               	                                  */
+/*  Function name   : Init_RF               	                                  */
 /*  	Parameters                                                                */
 /*          Input   :  No       			                          */
 /*          Output  :  No	                                                  */
@@ -320,12 +508,15 @@ WriteSingleReg(		IOCFG0	,	0x0C	);
 WriteSingleReg(		IOCFG2 	,	0x33	);
 WriteSingleReg(		MDMCFG0	,	0xF8	);
 WriteSingleReg(		MDMCFG1	,	0x22	);
+
+WriteSingleReg(		MDMCFG2	,	0x30	);
+WriteSingleReg(		MDMCFG3	,	0xE4	);
+WriteSingleReg(		MDMCFG4	,	0x56	);//0xf6
+
 WriteSingleReg(		FREQ0	,	0x89	);
 WriteSingleReg(		FREQ1	,	0x1D	);
 WriteSingleReg(		FREQ2	,	0x0C	);
-WriteSingleReg(		MDMCFG2	,	0x30	);
-WriteSingleReg(		MDMCFG3	,	0xE4	);
-WriteSingleReg(		MDMCFG4	,	0xf6	);//0x56
+
 WriteSingleReg(		MCSM0	,	0x18	);
 WriteSingleReg(		PKTCTRL0,	0x35	);
 WriteSingleReg(		AGCCTRL0,	0x90	);
@@ -347,8 +538,7 @@ WriteSingleReg(		FSCAL2,         0x2A	);
 WriteSingleReg(		FSCAL1,         0x00	);
 WriteSingleReg(		FSCAL0,         0x1F	);
 
-WriteSingleReg( MCSM1, 0x3C);
-
+////WriteSingleReg( MCSM1, 0x3C);
   WritePATable();
   ReceiveOn();  
   //Wait for RX status to be reached
@@ -356,6 +546,77 @@ WriteSingleReg( MCSM1, 0x3C);
   
 }
 
+void Init_RF_Test(void){
+  // Increase PMMCOREV level to 2 in order to avoid low voltage error 
+  // when the RF core is enabled
+  SetVCore(2);
+  ResetRadioCore(); 
+WriteSingleReg(		IOCFG0	,	0x0C	);
+WriteSingleReg(		IOCFG2 	,	0x33	);
+WriteSingleReg( FIFOTHR,        0x47 );
+WriteSingleReg( SYNC1,          0xD3 );
+WriteSingleReg( SYNC0,          0x91 );
+WriteSingleReg( PKTLEN,         0xFF );
+WriteSingleReg( PKTCTRL1,       0x04 );
+WriteSingleReg( PKTCTRL0,       0x12 );
+WriteSingleReg( ADDR,           0x00 );
+WriteSingleReg( CHANNR,         0x00 );
+WriteSingleReg( FSCTRL1,        0x06 );
+WriteSingleReg( FSCTRL0,        0x00 );
+WriteSingleReg( FREQ2,          0x0C );
+WriteSingleReg( FREQ1,          0x1D );
+WriteSingleReg( FREQ0,          0x89 );
+WriteSingleReg( MDMCFG4,        0xF5 );
+WriteSingleReg( MDMCFG3,        0x83 );
+WriteSingleReg( MDMCFG2,        0x38 );
+WriteSingleReg( MDMCFG1,        0x22 );
+WriteSingleReg( MDMCFG0,        0xF8 );
+WriteSingleReg( DEVIATN,        0x15 );
+WriteSingleReg( MCSM2,          0x07 );
+WriteSingleReg( MCSM1,          0x30 );
+WriteSingleReg( MCSM0,          0x10 );
+WriteSingleReg( FOCCFG,         0x16 );
+WriteSingleReg( BSCFG,          0x6C );
+WriteSingleReg( AGCCTRL2,       0x03 );
+WriteSingleReg( AGCCTRL1,       0x40 );
+WriteSingleReg( AGCCTRL0,       0x91 );
+WriteSingleReg( WOREVT1,        0x87 );
+WriteSingleReg( WOREVT0,        0x6B );
+WriteSingleReg( WORCTRL,        0xFB );
+WriteSingleReg( FREND1,         0x56 );
+WriteSingleReg( FREND0,         0x11 );
+WriteSingleReg( FSCAL3,         0xE9 );
+WriteSingleReg( FSCAL2,         0x2A );
+WriteSingleReg( FSCAL1,         0x00 );
+WriteSingleReg( FSCAL0,         0x1F );
+WriteSingleReg( FSTEST,         0x59 );
+WriteSingleReg( PTEST,          0x7F );
+WriteSingleReg( AGCTEST,        0x3F );
+WriteSingleReg( TEST2,          0x81 );
+WriteSingleReg( TEST1,          0x35 );
+WriteSingleReg( TEST0,          0x0B );
+WriteSingleReg( PARTNUM,        0x00 );
+WriteSingleReg( VERSION,        0x06 );
+WriteSingleReg( FREQEST,        0x00 );
+WriteSingleReg( LQI,            0x7F );
+WriteSingleReg( RSSI,           0x80 );
+WriteSingleReg( MARCSTATE,      0x00 );
+WriteSingleReg( WORTIME1,       0x00 );
+WriteSingleReg( WORTIME0,       0x00 );
+WriteSingleReg( PKTSTATUS,      0x00 );
+WriteSingleReg( VCO_VC_DAC,     0x94 );
+WriteSingleReg( TXBYTES,        0x00 );
+WriteSingleReg( RXBYTES,        0x00 );
+WriteSingleReg( RF1AIFCTL0,     0x00 );
+WriteSingleReg( RF1AIFCTL1,     0x70 );
+WriteSingleReg( RF1AIFCTL2,     0x00 );
+WriteSingleReg( RF1AIFERR,      0x00 );
+WriteSingleReg( RF1AIFERRV,     0x00 );
+WriteSingleReg( RF1AIFIV,       0x00 );
+
+  WritePATable();
+
+}
 /****************************************************************************/
 /*  Function name: delay                                                    */
 /*  	Parameters                                                          */
@@ -377,11 +638,90 @@ void delay(volatile unsigned long p){
 void delay_1us(volatile unsigned long p){}
 
 void delay_ms(volatile unsigned long p){
-unsigned long l=p*1150;
-while (l){ l--;delay_1us(1);}
+unsigned long l=p*20;
+while (l){ l--;Delay50us();}
 }
 
 void Delay50us(void){
 unsigned long l=43;//l=56;
   while (l){ l--;delay_1us(1);}
 }
+
+/****************************************************************************/
+/*  Function name: goToSleep                                                */
+/*  	Parameters                                                          */
+/*          Input   :  No                                                   */
+/*          Output  :  No	                                            */
+/*	Action: Going sleep                                                 */
+/****************************************************************************/
+void goToSleep(void){
+
+// Set up BUTTON 
+ // P1OUT &= ~BIT1;  //Pullup
+ // P1DIR |=  BIT1;  //Input  
+  //P1MAP0 &= ~BIT0;
+  P1MAP0=0X00;
+     
+  P1OUT = 0x00;
+  P1DIR = 0xFF; 
+  P1REN = 0xFF;
+  P2OUT = 0x00;
+  P2DIR = 0xFF;
+  P2REN = 0x00;
+  P3OUT = 0x00;
+  P3DIR = 0xff;
+  P3REN = 0x00;
+ // P1SEL =0XFF;
+  //P2SEL =0XFF;
+  //P3SEL =0XFF;
+  
+ // P1DIR &= ~ BIT6;                            // Set P1.6 as TX output
+ // P1SEL &= ~ (BIT5 + BIT6);
+ WriteSingleReg (MCSM0,0x00);
+ WriteSingleReg (IOCFG0,0x00);
+ WriteSingleReg (IOCFG1,0x00);
+ WriteSingleReg (IOCFG2,0x00);
+  
+  
+//ReceiveOff();
+   Strobe( RF_SIDLE );
+   Strobe( RF_SFRX);
+   Strobe( RF_SPWD);
+  
+__low_power_mode_4();
+
+}
+
+
+/****************************************************************************/
+/*   Function name  : void setFreq(double Freq)                             */
+/*  	Parameters                                                          */
+/*           Input  : Freq - frequency value in kHz                         */
+/*          Output  : No	                                            */
+/*	    Action  : Set frequency of CC1101 core                          */
+/****************************************************************************/
+void setFreq(double Freq){
+  char SetFreq[3];
+  FreqCalc (SetFreq, Freq);
+  WriteSingleReg(FREQ0,SetFreq[0]);//0x89 
+  WriteSingleReg(FREQ1,SetFreq[1]);//0x1d 
+  WriteSingleReg(FREQ2,SetFreq[2]);//0x0c
+}
+
+
+/****************************************************************************/
+/*   Function name  : void FreqCalc (char *SFreq, double Freq)              */
+/*  	Parameters                                                          */
+/*           Input  : Freq - frequency value in kHz                         */
+/*          Output  : SFreq - pointer of arr[3]                             */
+/*	    Action  : Calculate values for FREQ 0-2 rigisters               */
+/****************************************************************************/
+void FreqCalc (char *SFreq, double Freq){
+ long int  Koef;
+ Koef = (long int )( Freq*1000/(396.728515625)); //      Freq(MHz)/(26000000/2^16)
+*SFreq++ = (Koef&0xff);
+*SFreq++ = (Koef>>8)&0xff;
+*SFreq++ = (Koef>>16)&0xff;
+}
+
+

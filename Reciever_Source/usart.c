@@ -14,10 +14,11 @@
 #include "usart.h"
 
 //Global Variables initialization:
-volatile unsigned char USART_Flags_Register = 0;
-unsigned char USART_Received_Data = 0;
-
-
+unsigned char USART_Received_Data;
+ 
+unsigned char pos=0;
+char USART_Received_Data_Buff[6];
+unsigned char Need_check_UART_Buff;
 /****************************************************************************/
 /*  Function name: USART_Init                                               */
 /*  	Parameters                                                          */
@@ -41,6 +42,12 @@ void USART_Init(void)
   UCA0IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
   UCA0IFG &= (~UCRXIFG);                    // Clear RX interrupt falg
   
+  ///////////Re init for hight speed///////////////////
+ UCA0MCTL = UCBRS_0 + UCBRF_3 + UCOS16; 
+ UCA0BR0 = 103;                              // 1MHz 9600 (see User's Guide)
+ UCA0BR1 = 0;
+
+  
 }
 
 
@@ -55,7 +62,6 @@ void USART_Send_Data(unsigned char Data){
   while(USART_BUSY);	// Check USCI busy flag
   USART_TxData_Reg = Data;
 }
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //##### Functions related with strings and so on placed in ROM(Flash) memory #####
@@ -175,8 +181,19 @@ __interrupt void UART_ISR(void)
     //USART_Received_Data = USART_RxData_Reg; // Store received data
     //fUSART_Receive_Set;                     // Set received flag                  
     // Return Echo directly
-    USART_TxData_Reg = USART_RxData_Reg;    
+    //USART_TxData_Reg = USART_RxData_Reg;    // i comment
+     USART_Received_Data_Buff[pos] = USART_RxData_Reg;
+     pos++;
+    if (USART_RxData_Reg == 0x0A) {
+                                    Need_check_UART_Buff = 0xFF;
+                                    pos=0;
+                                    }
+    
+    if (pos>5){pos=0;}
+    
     break;
+    
+    
   case 4:break;                             // Vector 4 - TXIFG
   default: break;
   }
@@ -184,6 +201,7 @@ __interrupt void UART_ISR(void)
   
 
 }
+
 
 
 

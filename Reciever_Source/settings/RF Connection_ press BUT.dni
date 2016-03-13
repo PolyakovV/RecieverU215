@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=1644269889
+Checksum=1326487976
 [DisAssemblyWindow]
 NumStates=_ 1
 State 1=_ 1
@@ -53,9 +53,27 @@ ByteLimit=50
 [CallStack]
 ShowArgs=0
 [Disassembly]
-MixedMode=1
+MixedMode=0
+[watch_formats]
+Fmt0={W}0:Koef	4	0
+Fmt1={W}0:P2DIR	1	0
+Fmt2={W}0:P2OUT	1	0
+Fmt3={W}0:P2SEL	1	0
+Fmt4={W}0:P3DIR	1	0
+Fmt5={W}0:P3OUT	1	0
+Fmt6={W}0:RF1AIFCTL1	1	0
+Fmt7={W}0:RFSTATIFG	4	0
+Fmt8={W}0:strobe	4	0
+Fmt9={W}0:var1	3	0
+Fmt10={W}0:var1_LOCAL	3	0
+Fmt11={W}0:var2	3	0
+Fmt12={W}0:var3	3	0
 [Breakpoints]
-Count=0
+Bp0=_ "STD_CODE" "{$PROJ_DIR$\usart.c}.206.1" 0 0 0 0 "" 0 ""
+Bp1=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.174.7" 0 0 0 0 "" 0 ""
+Bp2=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.174.7" 0 0 0 0 "" 0 ""
+Bp3=_ "STD_CODE" "{$PROJ_DIR$\main.c}.705.3" 0 0 0 0 "" 0 ""
+Count=4
 [FET]
 Clock mode=14
 Extended Clock mode=-1

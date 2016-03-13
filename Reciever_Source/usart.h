@@ -17,6 +17,9 @@
 /***** 1.All functions prototypes *****/
 void USART_Init(void);
 void USART_Send_Data(unsigned char Data);
+
+
+
 // RAM related functions:
 void USART_Send_RAM_String(char *String_pointer);
 void USART_Send_RAM_Menu_Begin(void);
@@ -37,9 +40,13 @@ void USART_Send_ROM_Menu_Restore(void);
 #define fUSART_Receive_Check    (USART_Flags_Register & 0x01)
 
 //Other external definitions
-
-/***** 3.All variables *****/
-extern volatile unsigned char USART_Flags_Register;
-extern unsigned char USART_Received_Data;
-
+extern volatile unsigned char USART_Received_Data;
 #endif //__USART_H
+/***** 3.All variables *****/
+
+extern volatile unsigned char USART_Flags_Register;
+
+
+extern char USART_Received_Data_Buff[6];
+extern unsigned char Need_check_UART_Buff;
+/////////////////////////////////////////////////////////////////////

@@ -372,7 +372,7 @@
         </option>
         <option>
           <name>IccLang</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>IccCDialect</name>
@@ -1891,6 +1891,12 @@
     <name>$PROJ_DIR$\HAL\cc430x613x_PMM.h</name>
   </file>
   <file>
+    <name>$PROJ_DIR$\HAL\HAL_FLASH.c</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\HAL\HAL_FLASH.h</name>
+  </file>
+  <file>
     <name>$PROJ_DIR$\main.c</name>
   </file>
   <file>
@@ -1904,6 +1910,12 @@
   </file>
   <file>
     <name>$PROJ_DIR$\usart.h</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\Valik_os.c</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\Valik_os.h</name>
   </file>
 </project>
 
