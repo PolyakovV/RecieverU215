@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=1326487976
+Checksum=-1954882696
 [DisAssemblyWindow]
 NumStates=_ 1
 State 1=_ 1
@@ -70,9 +70,9 @@ Fmt11={W}0:var2	3	0
 Fmt12={W}0:var3	3	0
 [Breakpoints]
 Bp0=_ "STD_CODE" "{$PROJ_DIR$\usart.c}.206.1" 0 0 0 0 "" 0 ""
-Bp1=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.174.7" 0 0 0 0 "" 0 ""
-Bp2=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.174.7" 0 0 0 0 "" 0 ""
-Bp3=_ "STD_CODE" "{$PROJ_DIR$\main.c}.705.3" 0 0 0 0 "" 0 ""
+Bp1=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.240.3" 0 0 0 0 "" 0 ""
+Bp2=_ "STD_CODE" "{$PROJ_DIR$\Valik_os.c}.240.3" 0 0 0 0 "" 0 ""
+Bp3=_ "STD_CODE" "{$PROJ_DIR$\main.c}.723.3" 0 0 0 0 "" 0 ""
 Count=4
 [FET]
 Clock mode=14

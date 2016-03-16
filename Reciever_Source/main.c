@@ -1,6 +1,7 @@
 /****************************************************************************/
 /* Reciver                                                                  */
 /****************************************************************************/
+
 // Target : CC430F5137
 #include <cc430x513x.h>
 #include  <intrinsics.h>
@@ -28,12 +29,6 @@ void goToSleep(void);
 /****************************************************************************/
 /*     LOCAL VARIABLES                                                      */
 /****************************************************************************/
-char rssi_char;
-unsigned char sRX[5];
-unsigned char data_right;
-unsigned char j,k,l,m;
-int lCount,hCount,allCount;
-char vRSSI_1=0,vRSSI_2=0;
 void setFreq(double Freq);
 void FreqCalc (char *arr, double Freq);
 unsigned char rssi_dec;
@@ -42,14 +37,25 @@ unsigned char rssi_offset = 74;
   char * Flash_ptr;                         // Initialize Flash pointer
   char Flag_First_Time_Power_On;
   char FreqOffset[3];
+
+/////////////////////////Trigger events (Preffix "TR_" )///////////////////////
+#define TR_INIT                     1
+#define TR_CHANGE_ANT               2
+#define TR_TRANSMIT                 3
+#define TR_UPD_FREQUENCY            4  
+#define TR_TOOGLE_LED               5  
+
+/////////////////////////Processes (Preffix "PR_" )////////////////////////////  
+#define PR_SETUP_BY_UART            1
+#define PR_READ_RSSI                2
+#define PR_TESTING                  3
   
-  //Flash_ptr = (char *) 0x1800;
+  
+  
 ///////////////////////////////////////////////////////////////////////////////
-
-
 #define FLASH_UNLOCK    FCTL3 = FWKEY; FCTL1 = FWKEY + WRT;
 #define FLASH_LOCK      FCTL1 = FWKEY; FCTL3 = FWKEY + LOCK;
-#define FLASH_ERASE     FCTL3 = FWKEY;FCTL1 = FWKEY + ERASE;
+#define FLASH_ERASE     FCTL3 = FWKEY; FCTL1 = FWKEY + ERASE;
 
 #define CPU_FREQ   26000000
 
@@ -63,7 +69,7 @@ unsigned char rssi_offset = 74;
 
 
 #define RSSI_Hi			P1OUT |= BIT2;		P1DIR |= BIT2;
-#define RSSI_Middle	        P1DIR &= (~BIT2);       P1OUT &= (~BIT2);P1REN &= (~BIT2);P1SEL  &= ~BIT2;
+#define RSSI_Middle	        P1DIR &= (~BIT2);       P1OUT &= (~BIT2); P1REN &= (~BIT2); P1SEL  &= ~BIT2;
 #define RSSI_Low	        P1OUT &= (~BIT2);	P1DIR |= BIT2;
 
 
@@ -95,21 +101,21 @@ unsigned char rssi_offset = 74;
 #define ANT_1_On		P2OUT |= BIT0;		P2DIR |= BIT0;
 #define ANT_1_Off	        P2OUT &= (~BIT0);	P2DIR |= BIT0;
 #define ANT_1_Togg		P2OUT ^= BIT0;		P2DIR |= BIT0;
-#define ANT_1_Chk            (P2IN & BIT0)
+#define ANT_1_Chk               (P2IN & BIT0)
 
 
 
 #define ANT_2_On		P2OUT |= BIT1;		P2DIR |= BIT1;
 #define ANT_2_Off	        P2OUT &= (~BIT1);	P2DIR |= BIT1;
 #define ANT_2_Togg		P2OUT ^= BIT1;		P2DIR |= BIT1;
-#define ANT_2_Chk            (P2IN & BIT1)
+#define ANT_2_Chk               (P2IN & BIT1)
 
 
 
 #define AMPLIFIRE_On		P1OUT |= BIT7;		P1DIR |= BIT7;
 #define AMPLIFIRE_Off	        P1OUT &= (~BIT7);	P1DIR |= BIT7;
 #define AMPLIFIRE_Togg		P1OUT ^= BIT7;		P1DIR |= BIT7;
-#define AMPLIFIRE_Chk            (P1IN & BIT7)
+#define AMPLIFIRE_Chk           (P1IN & BIT7)
 
 #define Pin_RX                  (P3IN & BIT7)
 
@@ -120,7 +126,7 @@ unsigned char rssi_offset = 74;
 
 ////////////FLAGS/////////////////////
 
-#define MAX_RSSI_LEV    -20  
+#define MAX_RSSI_LEV    -15  
 #define MID_RSSI_LEV    -74
 #define LOW_RSSI_LEV    -80
 
@@ -173,7 +179,7 @@ int read_Flash(void) {
   if (Flag_First_Time_Power_On==0x00){ // check if write before
       
           for(int i=0;i<3;i++){
-                                FreqOffset[i] = *Flash_ptr++;
+                                FreqOffset[i] = *Flash_ptr++; // read from memory bank
                               }
                         
         }    else {
@@ -181,7 +187,8 @@ int read_Flash(void) {
               FreqOffset[1]= 0x1D;
               FreqOffset[2]= 0x89;
             }
-process_trigger  ("upd_freq");
+process_trigger  (TR_UPD_FREQUENCY);
+return 0;
 }
 
 
@@ -213,7 +220,7 @@ FLASH_UNLOCK;
       *Flash_ptr++ = FreqOffset[1];
       *Flash_ptr++ = FreqOffset[2];
 FLASH_LOCK;
-
+return 0;
 }
 ///////////////ANTENNA INIT///////////////////////////
 int ant_init(void)
@@ -221,31 +228,44 @@ int ant_init(void)
 ANT_1_On;
 ANT_2_Off;
 Switch_RX;
+return 0;
 }
 ////////////////AMPLIFIRE init ///////////////////////
 int amplifire_init(void)
 {
 AMPLIFIRE_On;
+return 0;
+
 }
+////////////////Toogle led///////////////////////////
+int Toogle_Led(void)
+{ 
+LED_Togg;
+trigger_Event_On_Timer  (TR_TOOGLE_LED,1000,0,ONCE);
+}
+
 ////////////////TX settings//////////////////////////
 int prepare_for_TX(void)
 { 
 ReceiveOff();
 Init_RF_Test();
 Switch_TX;
+return 0;
 }
-
+////////////////Set frequency values/////////////////
 int setFreqOffset(){
                         WriteSingleReg(FREQ0,FreqOffset[2]);//0x89
                         WriteSingleReg(FREQ1,FreqOffset[1]);//0x1D
                         WriteSingleReg(FREQ2,FreqOffset[0]);//0x0C
+return 0;
 }
-
+//////////Transmitting constant values for test///////
 int ForRFTest(){
 
       Transmit( (unsigned char*)TxBuffer, sizeof TxBuffer);      
       //Wait for TX status to be reached before going back to low power mode
       while((Strobe(RF_SNOP) & 0x70) != 0x20);
+return 0;
 }
 /****************************************************************************/
 /*  Function name: ports_init                                               */
@@ -334,7 +354,8 @@ __interrupt void PORT1_ISR(void)
 /****************************************************************************/
 ////////////////////////Process 1 ////////////////////////////////////////////
 int process0()
-{      // LED_On;
+{        int res=0;
+         // LED_On;
          //USART_Send_ROM_String("\n\rProcess 0");
          if (Need_check_UART_Buff) {
            
@@ -348,29 +369,30 @@ int process0()
                         FreqOffset[0]=USART_Received_Data_Buff[1];
                         FreqOffset[1]=USART_Received_Data_Buff[2];
                         FreqOffset[2]=USART_Received_Data_Buff[3];
-                        process_trigger  ("upd_freq");
+                        process_trigger  (TR_UPD_FREQUENCY);
                         USART_Send_Data(USART_Received_Data_Buff[0]);
              break;
              
            case 0xFE: 
                         if (USART_Received_Data_Buff[1]) { 
-                                                           process_trigger  ("init");
-                                                           process_trigger  ("transmit");
-                                                           process_detach_by_name("read_rssi");
-                                                           process_attach("Testing",   50, (int *)ForRFTest); // Transmit all the time
+                                                           process_trigger  (TR_INIT);
+                                                           process_trigger  (TR_TRANSMIT);
+                                                           process_detach_by_name(PR_READ_RSSI);
+                                                           process_attach(PR_TESTING,   50, (int *)ForRFTest); // Transmit all the time
                                                           }
                                                     else {
-                                                            process_trigger  ("init");
-                                                            process_detach_by_name("Testing");
-                                                            process_attach("read_rssi",   50, (int *)process1); // Read RSSI, change antenns
+                                                            process_trigger  (TR_INIT);
+                                                            process_detach_by_name(PR_TESTING);
+                                                            process_attach(PR_READ_RSSI,   50, (int *)process1); // Read RSSI, change antenns
                                                            
                                                         }
                         USART_Send_Data(USART_Received_Data_Buff[0]);
              break;
            
              case 0xFD: 
-                        process_trigger  ("change_ant");
+                        process_trigger  (TR_CHANGE_ANT);
                         USART_Send_Data(USART_Received_Data_Buff[0]);
+                       
                break;  
                
            default:
@@ -382,7 +404,7 @@ int process0()
            Need_check_UART_Buff  = 0x00;
   }
  // setFreq(315000);
-        return 0;
+        return res;
 }
 ////////////////////////Process 2 //////////////////////////////////////////// 
 int process1()
@@ -398,7 +420,7 @@ int process1()
               
            if (rssi_dBm  < LOW_RSSI_LEV)      {
                                                RSSI_Low;
-                                               process_trigger  ("change_ant");
+                                               process_trigger  (TR_CHANGE_ANT);
                                               }
            else if (rssi_dBm <= MID_RSSI_LEV) {
                                                RSSI_Middle;
@@ -417,6 +439,7 @@ int process1()
 int process_switch_ANT()
 { 
 Toogle_Antens;    
+return 0;
 }
 
 
@@ -426,59 +449,58 @@ int main(void){
   //1. Stop errant interrupts until set up
  WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 _BIC_SR(GIE); // Disable interrupts during initialization process
- process_subscribe("init"       , "ports_init"      , (int *) ports_init);
- process_subscribe("init"       , "rf_init"         , (int *) Init_RF);
- process_subscribe("init"       , "cpu_clock_init"  , (int *) CPU_clock_init);
- process_subscribe("init"       , "uart_init"       , (int *) USART_Init);
- process_subscribe("init"       , "ant_init"        , (int *) ant_init);
- process_subscribe("init"       , "amplifire_init"  , (int *) amplifire_init);
- process_subscribe("init"       , "flash_init"      , (int *) read_Flash);
- process_subscribe("change_ant" , "change_ant"      , (int *) process_switch_ANT);
- process_subscribe("transmit"   , "TX_init"         , (int *) prepare_for_TX);
+///////////////////// Init of mediator //////////////////////////////////////
+ process_subscribe(TR_INIT            , "ports_init"       , (int *) ports_init);
+ process_subscribe(TR_INIT            , "rf_init"          , (int *) Init_RF);
+ process_subscribe(TR_INIT            , "cpu_clock_init"   , (int *) CPU_clock_init);
+ process_subscribe(TR_INIT            , "uart_init"        , (int *) USART_Init);
+ process_subscribe(TR_INIT            , "ant_init"         , (int *) ant_init);
+ process_subscribe(TR_INIT            , "amplifire_init"   , (int *) amplifire_init);
+ process_subscribe(TR_INIT            , "flash_init"       , (int *) read_Flash);
+ process_subscribe(TR_CHANGE_ANT      , "change_ant"       , (int *) process_switch_ANT);
+ process_subscribe(TR_TRANSMIT        , "TX_init"          , (int *) prepare_for_TX);
+ process_subscribe(TR_TOOGLE_LED      , "Toogle_led"       , (int *) Toogle_Led);
+
  
-process_subscribe("upd_freq"   , "Save_Freq"        , (int *) save_Flash);
-process_subscribe("upd_freq"   , "UPD_Freq"         , (int *) setFreqOffset);
+ process_subscribe(TR_UPD_FREQUENCY   , "Save_Freq"        , (int *) save_Flash);
+ process_subscribe(TR_UPD_FREQUENCY   , "upd_freq"         , (int *) setFreqOffset);
 
- process_trigger  ("init");
- //process_unsubscribe_by_event("init");
-
- //process_trigger  ("transmit");
+ process_trigger  (TR_INIT);
+  
+  TA1CCTL0 = CCIE;                          // CCR0 interrupt enabled
  
+  TA1CCR0 = 50000;
+  TA1CTL = TASSEL_2 + MC_2 + TACLR;  // SMCLK, contmode, clear TAR
+                                           
+ trigger_Event_On_Timer  (TR_TOOGLE_LED,1000,0,ONCE);
+ //trigger_Event_On_Timer  (TR_TOOGLE_LED,2000,0,ONCE);
+ //trigger_Event_On_Timer  (TR_TOOGLE_LED,3000,0,ONCE);
+ //trigger_Event_On_Timer  (TR_TOOGLE_LED,4000,0,ONCE);
+ 
+ 
+ // enable interrupt
 
+
+//  __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0, enable interrupts
+ //process_unsubscribe_by_event(TR_INIT);
+ //process_trigger  (TR_TRANSMIT);
  
  _BIS_SR(GIE); // Global Interrupt enabled. Do this at the END of the initialization!!!!!!!!
 
  delay_ms(200);
- 
 
-
- //USART_Send_ROM_Menu_Begin();
- //USART_Send_Data(vRSSI_2);
-
-
-//////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////Flash save /////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////
-
- 
-
-
-//USART_Send_Data(0x88);// for my debug
 //////////////////////////////////////////////////////////////////////////////////
 //                         M A I N   C Y C L E                                  //
 //////////////////////////////////////////////////////////////////////////////////
 
-  process_attach("setup_by_uart",   50, (int *)process0); // Set freq by UART
-  process_attach("read_rssi"    ,   50, (int *)process1); // Read RSSI, change antenns
-    
- //process_attach("Testing",   50, (int *)ForRFTest); // Read RSSI, change antenns
-  
-  scheduler();
+ ///////// Add processes to process list /////////////////////
+  process_attach(PR_SETUP_BY_UART,   50, (int *)process0); // Set freq by UART
+  process_attach(PR_READ_RSSI    ,   50, (int *)process1); // Read RSSI, change antenns
+  //process_attach(PR_TESTING,   50, (int *)ForRFTest); // Read RSSI, change antenns
+
+  scheduler(); // run scheduler, no way back from here
   
 
-while(1){ 
- 
-  }
   
 }
 
